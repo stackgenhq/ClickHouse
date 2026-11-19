@@ -180,10 +180,21 @@ StoragePolicy::StoragePolicy(StoragePolicyPtr storage_policy,
     {
         if (storage_policy->containsVolume(volume->getName()))
         {
+            const String volume_prefix = config_prefix + ".volumes." + volume->getName();
+            if (storage_policy->getName() == DEFAULT_STORAGE_POLICY_NAME && !config.has(volume_prefix))
+            {
+                /// Default policies may be omitted from XML; skip before `updateVolumeFromConfig`
+                /// throws `NO_ELEMENTS_IN_CONFIG` and increments `system.errors`.
+                Poco::Util::AbstractConfiguration::Keys keys;
+                config.keys(config_prefix, keys);
+                if (keys.empty())
+                    continue;
+            }
+
             auto old_volume = storage_policy->getVolumeByName(volume->getName());
             try
             {
-                auto new_volume = updateVolumeFromConfig(old_volume, config, config_prefix + ".volumes." + volume->getName(), disks);
+                auto new_volume = updateVolumeFromConfig(old_volume, config, volume_prefix, disks);
                 volume = std::move(new_volume);
             }
             catch (Exception & e)
